@@ -2,8 +2,23 @@ import serial
 import socket
 import threading
 import queue
-import pygame
+import numpy as np
+import scipy as sc
 from serial.tools import list_ports
+
+def calculateP(theta1,theta2):
+    P = np.array([[np.sin(theta2)],
+                  [-np.sin(theta1) * np.cos(theta2) - 5.5 * np.sin(theta1)],
+                  [np.cos(theta1) * np.cos(theta2) + 5.5 * np.cos(theta1)],
+                  [1]
+                  ])
+    return P
+
+
+def EndEffectorToCMD(P):
+    
+    cmd = P
+    return cmd
 
 
 def find_ports():
@@ -29,19 +44,34 @@ if SERIAL_PORT == None:
 BAUD = 115200
 
 
-cmd_queue = queue.Queue()
 serial_queue = queue.Queue()
 
+message_lock = threading.Lock()
+current_message = None
+
+
+
 def serial_process():
+    global current_message
+    
+
     ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0)
     while True:
-        cmd = serial_queue.get()
+        message = None
+        with message_lock:
+            if current_message != None:
+                message = current_message
+        cmd = EndEffectorToCMD(message)
         if cmd == "EXIT":
             break
+
         ser.write((cmd + "\n").encode("utf-8"))
     ser.close()
 
 def socket_thread() :
+    global current_message
+
+
     conn = None
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
@@ -60,12 +90,23 @@ def socket_thread() :
         print("No client connected in time")
     if conn:
         while True:
-            cmd = cmd_queue.get()
-            #print(cmd)
-            if cmd == "EXIT":
+            try:
+                data = conn.recv(1024)
+                if not data:
+                    break
+
+                message = data.decode("utf-8")
+
+                with message_lock:
+                    current_message = message
+
+            except ConnectionResetError:
+                print("Client disconnected abruptly")
                 break
-            message = cmd.encode("utf-8")
-            conn.send(message)
+            except OSError as e:
+                print("Socket error: ", e)
+                break
+
         conn.close()
 
 
@@ -79,30 +120,6 @@ if SERIAL_PORT:
 server_thread = threading.Thread(target=socket_thread, daemon=False)
 server_thread.start()
 
-
-
-pygame.init()
-pygame.display.set_mode((100, 100))  # hidden-ish input window
-
-
-running = True
-while running:
-    
-    pygame.event.pump()
-    for event in pygame.event.get():
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_w:
-                cmd_queue.put("forward")
-                serial_queue.put("forward")
-            elif event.key == pygame.K_s:
-                cmd_queue.put("backward")
-                serial_queue.put("backward")
-            elif event.key == pygame.K_ESCAPE:
-                cmd_queue.put("EXIT")
-                serial_queue.put("EXIT")
-                running = False
-
-pygame.quit()
 
 serial_thread.join()
 server_thread.join()

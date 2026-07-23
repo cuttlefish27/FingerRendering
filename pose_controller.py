@@ -7,13 +7,13 @@
 #import bpy
 import socket
 import threading
-import queue
 
-message_queue = queue.Queue()
-send_queue = queue.Queue()
 
 HOST = "127.0.0.1"
 PORT = 8765
+
+pos_loc = threading.Lock()
+current_location = None
 
 def client_process():
 
@@ -21,31 +21,27 @@ def client_process():
     client.connect((HOST, PORT))
     
     while True:
-        data = client.recv(1024)
-        if not data:
-            break
+        global current_location
+        location = None
+        with pos_loc:
+            if current_location != None:
+                location = current_location
+        
 
-        message = data.decode("utf-8")
-        message_queue.put(message)
-        print(message)
+        message = location.encode('utf-8')
+        client.send(message)
+        
     client.close()
 
 def blender_processes():
     #cube = bpy.data.objects["Cube"]
-    try:
-        while True:
-            message = message_queue.get_nowait()
-
-            if message == "forward":
-               #cube.location.x += 1
-               pass
-            elif message == "backward":
-                #cube.location.x -=1
-                pass
-            print(message)
-    except queue.Empty:
+    global current_location
+    with pos_loc:
+# Add as many updates as objects being tracked        
+#       current_location = (cube.location.x,
+#                           cube.location.y,
+#                           cube.location.z)
         pass
-
     return 0.1
 
 ##set daemon = True and remove .join() when running in a blender file
