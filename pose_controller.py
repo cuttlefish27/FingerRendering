@@ -4,7 +4,7 @@
 ## comment out any lines that say comment out next to them
 ## All comments are here to ensure that code for sockets and threading compiles inside of an external editor
 
-import bpy
+#import bpy
 import socket
 import threading
 import math
@@ -35,37 +35,38 @@ def client_process():
 
 def blender_processes():
     
-    #armature = bpy.data.objects["Armature"]
+    # armature = bpy.data.objects["Armature"]
     
-    #depsgraph = bpy.context.evaluated_depsgraph_get()
-    #arm_eval = armature.evaluated_get(depsgraph)
+    # depsgraph = bpy.context.evaluated_depsgraph_get()
+    # arm_eval = armature.evaluated_get(depsgraph)
 
-    #bone1 = arm_eval.pose.bones["Bone"]
-    #bone2 = arm_eval.pose.bones["Bone.001"]
+    # bone1 = arm_eval.pose.bones["Bone"]
+    # bone2 = arm_eval.pose.bones["Bone.001"]
     
-    #R1 = bone1.matrix.to_3x3()
-    #R2 = bone2.matrix.to_3x3()
+    # R1 = bone1.matrix.to_3x3()
+    # R2 = bone2.matrix.to_3x3()
     
-    #R_rel = R1.inverted() @ R2
+    # R_rel = R1.inverted() @ R2
     
-    #euler1 = R1.to_euler('XYZ')
-    #euler2 = R_rel.to_euler('XYZ')
+    # euler1 = R1.to_euler('XYZ')
+    # euler2 = R_rel.to_euler('XYZ')
 
-    #theta1 = euler1.y
-    #theta2 = euler2.x
+    # theta1 = euler1.x - math.pi/2
+    # theta2 = euler2.z
     
 
    
     
 
-   # print(euler1)
-   # print(euler2)
+    # print(theta1)
+    # print(theta2)
 
     global theta
     with pos_loc:
 # Add as many updates as objects being tracked        
-       #theta = (theta1, theta2)
-       pass
+    # theta = (theta1, theta2)
+        pass ## comment this out
+    
     return 0.1
 
 ##set daemon = True and remove .join() when running in a blender file
