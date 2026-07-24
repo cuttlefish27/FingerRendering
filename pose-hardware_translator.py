@@ -5,19 +5,78 @@ import queue
 import numpy as np
 import scipy as sc
 from serial.tools import list_ports
+import math
 
-def calculateP(theta1,theta2):
-    P = np.array([[np.sin(theta2)],
-                  [-np.sin(theta1) * np.cos(theta2) - 5.5 * np.sin(theta1)],
-                  [np.cos(theta1) * np.cos(theta2) + 5.5 * np.cos(theta1)],
-                  [1]
-                  ])
-    return P
+def calculateA(theta):
+    theta1 = -theta[0]
+    theta2 = -theta[1]
 
-
-def EndEffectorToCMD(P):
     
-    cmd = P
+
+
+    x1 = 0.5
+    y1 = 0.9
+    z1 = 0.70
+
+    A_1 = np.array([[x1 * np.cos(theta2) + z1 * np.sin(theta2)],
+                    [x1 * np.sin(theta1) * np.sin(theta2) + y1 * np.cos(theta1) - z1 * np.sin(theta1)*np.cos(theta2) - 0.55 * np.sin(theta1)],
+                    [-x1 * np.cos(theta1) * np.sin(theta2) + y1 * np.sin(theta1) + z1 * np.cos(theta1)*np.cos(theta2) + 0.55 * np.cos(theta1)],
+                    [1]
+                    ])
+    A_2 = np.array([[x1 * np.cos(theta2) + z1 * np.sin(theta2)],
+                    [x1 * np.sin(theta1) * np.sin(theta2) - y1 * np.cos(theta1) - z1 * np.sin(theta1)*np.cos(theta2) - 0.55 * np.sin(theta1)],
+                    [-x1 * np.cos(theta1) * np.sin(theta2) - y1 * np.sin(theta1) + z1 * np.cos(theta1)*np.cos(theta2) + 0.55 * np.cos(theta1)],
+                    [1]
+                    ])
+    
+    #print("A1 = ", A_1)
+    #print("A2 = ", A_2)
+
+    return A_1, A_2
+
+
+def calculateL(theta):
+
+    gx1 = 0.7
+    gx2 = 0.7
+    gy1 = 0.91
+    gy2 = -0.91
+    gz1 = -0.6
+    gz2 = -0.6
+
+    G_1 = np.array([[gx1], [gy1], [gz1], [1]])
+    G_2 = np.array([[gx2], [gy2], [gz2], [1]])
+
+    A_1, A_2 = calculateA(theta)
+
+    
+
+    L1 = np.linalg.norm(G_1 - A_1)
+    L2 = np.linalg.norm(G_2 - A_2)
+
+    
+    return L1, L2
+
+
+def CMD(theta):
+    L1, L2 = calculateL(theta)
+    L1_0 = 1.861
+    L2_0 = 1.861
+    dL1 = L1_0 - L1
+    dL2 = L2_0 - L2
+
+    
+
+    dPhi1 = (dL1/0.45) * (180/math.pi)
+    dPhi2 = 180 - ((dL2/0.45) * (180/math.pi))
+
+    #print("dPhi1 = ", dPhi1)
+    #print("dPhi2 = ", dPhi2)
+
+    cmd = (str) (dPhi1) + " " + (str) (dPhi2)
+
+    print(cmd)
+    
     return cmd
 
 
@@ -53,7 +112,7 @@ current_message = None
 
 def serial_process():
     global current_message
-    
+
 
     ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0)
     while True:
@@ -61,11 +120,18 @@ def serial_process():
         with message_lock:
             if current_message != None:
                 message = current_message
-        cmd = EndEffectorToCMD(message)
-        if cmd == "EXIT":
-            break
+        if message != None:
 
-        ser.write((cmd + "\n").encode("utf-8"))
+            data = message.split()
+
+            theta = ((float)(data[0]), (float)(data[1]))
+            cmd = CMD(theta)
+            
+
+            if cmd == "EXIT":
+                break
+            ser.write((cmd + "\n").encode("utf-8"))
+
     ser.close()
 
 def socket_thread() :
@@ -89,16 +155,14 @@ def socket_thread() :
     except socket.timeout:
         print("No client connected in time")
     if conn:
+        buffer = ""
         while True:
             try:
-                data = conn.recv(1024)
-                if not data:
-                    break
-
-                message = data.decode("utf-8")
-
-                with message_lock:
-                    current_message = message
+                buffer += conn.recv(1024).decode()
+                while '\n' in buffer:
+                    line, buffer = buffer.split('\n', 1)
+                    with message_lock:
+                        current_message = line
 
             except ConnectionResetError:
                 print("Client disconnected abruptly")
