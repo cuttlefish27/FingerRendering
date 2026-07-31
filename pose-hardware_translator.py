@@ -58,7 +58,7 @@ def calculateL(theta):
     return L1, L2
 
 
-def CMD(theta):
+def CMD(theta, curl):
     L1, L2 = calculateL(theta)
     L1_0 = 1.861
     L2_0 = 1.861
@@ -67,13 +67,15 @@ def CMD(theta):
 
     
 
-    dPhi1 = (dL1/0.45) * (180/math.pi)
-    dPhi2 = 180 - ((dL2/0.45) * (180/math.pi))
+    dPhi1 = (dL1/0.40) * (180/math.pi)
+    dPhi2 = 180 - ((dL2/0.40) * (180/math.pi))
+
+    curlCMD = (curl + (- theta[1])) * 180/math.pi
 
     #print("dPhi1 = ", dPhi1)
     #print("dPhi2 = ", dPhi2)
 
-    cmd = (str) (dPhi1) + " " + (str) (dPhi2)
+    cmd = (str) (dPhi1) + " " + (str) (dPhi2) + " " + (str) (curlCMD)
 
     print(cmd)
     
@@ -125,7 +127,8 @@ def serial_process():
             data = message.split()
 
             theta = ((float)(data[0]), (float)(data[1]))
-            cmd = CMD(theta)
+            curl = (float)(data[2])
+            cmd = CMD(theta, curl)
             
 
             if cmd == "EXIT":

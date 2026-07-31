@@ -7,7 +7,7 @@
 #define SCL 22
 
 #define ServMin 150
-#define ServMax 500
+#define ServMax 600
 
 
 
@@ -34,14 +34,17 @@ void loop() {
   if(Serial.available()) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
-    int space = cmd.indexOf(' ');
+    int space1 = cmd.indexOf(' ');
+    int space2 = cmd.indexOf(' ', space1 +1);
 
-  float theta0 = cmd.substring(0, space).toFloat();
-  float theta1 = cmd.substring(space + 1).toFloat();
+  float theta0 = cmd.substring(0, space1).toFloat();
+  float theta1 = cmd.substring(space1 + 1, space2).toFloat();
+  float curl = cmd.substring(space2).toFloat();
 
   Serial.println(theta0);
   Serial.println(theta1);
-
+  Serial.println(curl);
+  
   
 
 
@@ -49,6 +52,7 @@ void loop() {
 
   setServo(0, theta0);
   setServo(1, theta1);
+  setServo(2, curl);
 
   }
 }
