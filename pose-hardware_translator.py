@@ -3,9 +3,9 @@ import socket
 import threading
 import queue
 import numpy as np
-import scipy as sc
 from serial.tools import list_ports
 import math
+import time
 
 def calculateA(theta):
     theta1 = -theta[0]
@@ -116,24 +116,31 @@ def serial_process():
     global current_message
 
 
-    ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0)
+    ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0, write_timeout = 0)
+
+    last_message = None
+
     while True:
         message = None
         with message_lock:
-            if current_message != None:
-                message = current_message
-        if message != None:
+            message = current_message
+        
+        if message is None or message == last_message:
+            time.sleep(0.001)
+            continue
 
-            data = message.split()
+        last_message = message
 
-            theta = ((float)(data[0]), (float)(data[1]))
-            curl = (float)(data[2])
-            cmd = CMD(theta, curl)
+        data = message.split()
+
+        theta = ((float)(data[0]), (float)(data[1]))
+        curl = (float)(data[2])
+        cmd = CMD(theta, curl)
             
 
-            if cmd == "EXIT":
-                break
-            ser.write((cmd + "\n").encode("utf-8"))
+        if cmd == "EXIT":
+            break
+        ser.write((cmd + "\n").encode("utf-8"))
 
     ser.close()
 
