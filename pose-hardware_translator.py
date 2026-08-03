@@ -14,6 +14,8 @@ filter3 = None
 last_send = 0
 SENDPERIOD = 0.02
 
+work_available = threading.Semaphore(0)
+
 def calculateA(theta):
     theta1 = -theta[0]
     theta2 = -theta[1]
@@ -146,6 +148,8 @@ def serial_process():
     last_message = None
 
     while True:
+        work_available.acquire()
+        
         message = None
         with message_lock:
             message = current_message
@@ -153,6 +157,8 @@ def serial_process():
         if message is None or message == last_message:
             time.sleep(0.001)
             continue
+        if message == "EXIT":
+            break
 
         last_message = message
 
@@ -161,10 +167,7 @@ def serial_process():
         theta = ((float)(data[0]), (float)(data[1]))
         curl = (float)(data[2])
         cmd = CMD(theta, curl)
-            
-
-        if cmd == "EXIT":
-            break
+        
         now = time.perf_counter()
         if now - last_send >= SENDPERIOD:
             ser.write((cmd + "\n").encode("utf-8"))
@@ -186,30 +189,32 @@ def socket_thread() :
 
 
     print("Server listening...")
-    try:
-        conn, addr = server.accept()
-        print("Connected:", addr)
+    while True:
 
-    except socket.timeout:
-        print("No client connected in time")
-    if conn:
-        buffer = ""
-        while True:
-            try:
-                buffer += conn.recv(1024).decode()
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
-                    with message_lock:
-                        current_message = line
+        try:
+            conn, addr = server.accept()
+            print("Connected:", addr)
 
-            except ConnectionResetError:
-                print("Client disconnected abruptly")
-                break
-            except OSError as e:
-                print("Socket error: ", e)
-                break
-
-        conn.close()
+        except socket.timeout:
+            print("No client connected in time")
+        if conn:
+            buffer = ""
+            while True:
+                try:
+                    buffer += conn.recv(1024).decode()
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        with message_lock:
+                            current_message = line
+                        work_available.release()
+                except ConnectionResetError:
+                    print("Client disconnected abruptly")
+                    break
+                except OSError as e:
+                    print("Socket error: ", e)
+                    break
+            conn.close()
+    
 
 
 

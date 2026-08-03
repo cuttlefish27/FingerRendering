@@ -10,8 +10,14 @@ HOST = "127.0.0.1"
 PORT = 8765
 
 pos_loc = threading.Lock()
+
+#Semaphore to wake the client thread when new data is available
+work_available = threading.Semaphore(0)
+
 theta = None
 curl = None
+
+program_running = True
 
 def client_process():
 
@@ -19,20 +25,26 @@ def client_process():
     client.connect((HOST, PORT))
     
     while True:
+        work_available.acquire() 
+          # wait here until new data is available
+        if(not program_running):
+            message = "EXIT\n"
+            break
         global theta
         global curl
         with pos_loc:
-            if theta != None:
+            if (theta != None) and (curl != None):
                 currTheta = f"{theta[0]} {theta[1]} {curl}\n"
-        
-
                 message = currTheta.encode('utf-8')
                 client.send(message)
         
     client.close()
 
 def blender_processes():
-    
+
+    localTheta = None
+    localCurl = None
+
     armature = bpy.data.objects["Armature"]
     curlControl = bpy.data.objects["Empty.001"]
     
@@ -55,20 +67,22 @@ def blender_processes():
     
     curl1 = curlControl.location.z 
 
-   
-    
-
     print(theta1)
     print(theta2)
     print(curl1)
 
     global theta
     global curl
+
+    localTheta = (theta1, theta2)
+    localCurl = curl1
+
     with pos_loc:
-# Add as many updates as objects being tracked        
-       theta = (theta1, theta2)
-       curl = curl1
-       
+        if (localTheta != theta) or (localCurl != curl):
+            theta = localTheta
+            curl = localCurl
+            work_available.release()  # signal the client thread that new data is available
+
     return 0.02
 
 
