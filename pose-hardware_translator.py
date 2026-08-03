@@ -7,6 +7,13 @@ from serial.tools import list_ports
 import math
 import time
 
+filter1 = None
+filter2 = None
+filter3 = None
+
+last_send = 0
+SENDPERIOD = 0.02
+
 def calculateA(theta):
     theta1 = -theta[0]
     theta2 = -theta[1]
@@ -59,6 +66,11 @@ def calculateL(theta):
 
 
 def CMD(theta, curl):
+    global filter1
+    global filter2
+    global filter3
+
+
     L1, L2 = calculateL(theta)
     L1_0 = 1.861
     L2_0 = 1.861
@@ -72,10 +84,22 @@ def CMD(theta, curl):
 
     curlCMD = (curl + (- theta[1])) * 180/math.pi
 
+    #Low pass filtering to reduce jitter
+    alpha = 0.5
+    if(filter1 is None or filter2 is None or filter3 is None):
+        filter1 = dPhi1
+        filter2 = dPhi2
+        filter3 = curlCMD
+    else:
+        filter1 = filter1 + alpha * (dPhi1 - filter1)
+        filter2 = filter2 + alpha * (dPhi2 - filter2)
+        filter3 = filter3 + alpha * (curlCMD - filter3)
+
+
     #print("dPhi1 = ", dPhi1)
     #print("dPhi2 = ", dPhi2)
 
-    cmd = (str) (dPhi1) + " " + (str) (dPhi2) + " " + (str) (curlCMD)
+    cmd = (str) (filter1) + " " + (str) (filter2) + " " + (str) (filter3)
 
     print(cmd)
     
@@ -114,7 +138,8 @@ current_message = None
 
 def serial_process():
     global current_message
-
+    global last_send
+    global SENDPERIOD
 
     ser = serial.Serial(SERIAL_PORT, BAUD, timeout=0, write_timeout = 0)
 
@@ -140,7 +165,10 @@ def serial_process():
 
         if cmd == "EXIT":
             break
-        ser.write((cmd + "\n").encode("utf-8"))
+        now = time.perf_counter()
+        if now - last_send >= SENDPERIOD:
+            ser.write((cmd + "\n").encode("utf-8"))
+            last_send = now
 
     ser.close()
 
